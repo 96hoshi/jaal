@@ -198,6 +198,23 @@ class Jaal:
         popover_legend_children.extend(create_legends_for("Edge", edge_value_color_mapping))
         #
         return popover_legend_children
+    
+    def _check_color_size(self):
+            # fetch the id of option which triggered
+            if 'color' in self.data['nodes']:
+                graph_data, self.node_value_color_mapping = self._callback_color_nodes(None, 'color')
+            # If color edge text is provided
+            if 'color' in self.data['edges']:
+                graph_data, self.edge_value_color_mapping = self._callback_color_edges(None, 'color')
+            # If size node text is provided
+            if 'size' in self.data['nodes']:
+                graph_data = self._callback_size_nodes(None, 'size')
+            if 'size' in self.data['edges']:
+                graph_data = self._callback_size_edges(None, 'size')
+            # If size edge text is provided
+            color_popover_legend_children = self.get_color_popover_legend_children(self.node_value_color_mapping, self.edge_value_color_mapping)
+            # finally return the modified data
+            return [graph_data, color_popover_legend_children]
 
     def create(self, directed=False, vis_opts=None):
         """Create the Jaal app and return it
@@ -220,7 +237,7 @@ class Jaal:
 
         # define layout
         app.layout = get_app_layout(self.data, color_legends=self.get_color_popover_legend_children(), directed=directed, vis_opts=vis_opts)
-
+        self._check_color_size()
         # create callbacks to toggle legend popover
         @app.callback(
             Output("color-legend-popup", "is_open"),
