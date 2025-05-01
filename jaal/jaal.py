@@ -85,7 +85,7 @@ class Jaal:
             print("wrong edge filter query!!")
         return graph_data
 
-    def _callback_color_nodes(self, graph_data, color_nodes_value):
+    def _callback_color_nodes(self, graph_data, color_nodes_value, color_in_column=False):
         value_color_mapping = {}
         # color option is None, revert back all changes
         if color_nodes_value == 'None':
@@ -98,7 +98,11 @@ class Jaal:
             colors = get_distinct_colors(len(unique_values))
             value_color_mapping = {x:y for x, y in zip(unique_values, colors)}
             for node in self.data['nodes']:
-                node['color'] = value_color_mapping[node[color_nodes_value]]
+                if color_in_column:
+                    # if the color is in column, then set the color to the edge
+                    node['color'] = node['color']
+                else:
+                    node['color'] = value_color_mapping[node[color_nodes_value]]
         # filter the data currently shown
         filtered_nodes = [x['id'] for x in self.filtered_data['nodes']]
         self.filtered_data['nodes'] = [x for x in self.data['nodes'] if x['id'] in filtered_nodes]
@@ -128,7 +132,7 @@ class Jaal:
         graph_data = self.filtered_data
         return graph_data
 
-    def _callback_color_edges(self, graph_data, color_edges_value):
+    def _callback_color_edges(self, graph_data, color_edges_value, color_in_column=False):
         value_color_mapping = {}
         # color option is None, revert back all changes
         if color_edges_value == 'None':
@@ -141,7 +145,11 @@ class Jaal:
             colors = get_distinct_colors(len(unique_values))
             value_color_mapping = {x:y for x, y in zip(unique_values, colors)}
             for edge in self.data['edges']:
-                edge['color']['color'] = value_color_mapping[edge[color_edges_value]]
+                if color_in_column:
+                    # if the color is in column, then set the color to the edge
+                    edge['color']['color'] = edge['color']
+                else:
+                    edge['color']['color'] = value_color_mapping[edge[color_edges_value]]
         # filter the data currently shown
         filtered_edges = [x['id'] for x in self.filtered_data['edges']]
         self.filtered_data['edges'] = [x for x in self.data['edges'] if x['id'] in filtered_edges]
@@ -199,23 +207,6 @@ class Jaal:
         #
         return popover_legend_children
     
-    def _check_color_size(self):
-            # fetch the id of option which triggered
-            if 'color' in self.data['nodes']:
-                graph_data, self.node_value_color_mapping = self._callback_color_nodes(None, 'color')
-            # If color edge text is provided
-            if 'color' in self.data['edges']:
-                graph_data, self.edge_value_color_mapping = self._callback_color_edges(None, 'color')
-            # If size node text is provided
-            if 'size' in self.data['nodes']:
-                graph_data = self._callback_size_nodes(None, 'size')
-            if 'size' in self.data['edges']:
-                graph_data = self._callback_size_edges(None, 'size')
-            # If size edge text is provided
-            color_popover_legend_children = self.get_color_popover_legend_children(self.node_value_color_mapping, self.edge_value_color_mapping)
-            # finally return the modified data
-            return [graph_data, color_popover_legend_children]
-
     def create(self, directed=False, vis_opts=None):
         """Create the Jaal app and return it
 
@@ -237,7 +228,6 @@ class Jaal:
 
         # define layout
         app.layout = get_app_layout(self.data, color_legends=self.get_color_popover_legend_children(), directed=directed, vis_opts=vis_opts)
-        self._check_color_size()
         # create callbacks to toggle legend popover
         @app.callback(
             Output("color-legend-popup", "is_open"),
@@ -281,55 +271,53 @@ class Jaal:
             if n:
                 return not is_open
             return is_open
-
-        # create the main callbacks
+        
         @app.callback(
             [Output('graph', 'data'), Output('color-legend-popup', 'children')],
-            [Input('search_graph', 'value'),
-            Input('filter_nodes', 'value'),
-            Input('filter_edges', 'value'),
-            Input('color_nodes', 'value'),
-            Input('color_edges', 'value'),
-            Input('size_nodes', 'value'),
-            Input('size_edges', 'value')],
+            [Input("my-toggle-button", "n_clicks")],
             [State('graph', 'data')]
         )
-        def setting_pane_callback(search_text, filter_nodes_text, filter_edges_text, 
-                    color_nodes_value, color_edges_value, size_nodes_value, size_edges_value, graph_data):
-            # fetch the id of option which triggered
-            ctx = dash.callback_context
+        def toggle_My_settings(n, graph_data):
+            if n:
+                graph_data, self.edge_value_color_mapping = self._callback_color_edges(graph_data, 'group', True)
+                graph_data = self._callback_size_nodes(graph_data, 'conformity')
+                # create the color legend childrens
+                color_popover_legend_children = self.get_color_popover_legend_children(self.node_value_color_mapping, self.edge_value_color_mapping)
+                # finally return the modified data
+                return [graph_data, color_popover_legend_children]
             # if its the first call
-            if not ctx.triggered:
-                print("No trigger")
-                return [self.data, self.get_color_popover_legend_children()]
-            else:
-                # find the id of the option which was triggered
-                input_id = ctx.triggered[0]['prop_id'].split('.')[0]
-                # perform operation in case of search graph option
-                if input_id == "search_graph":
-                    graph_data = self._callback_search_graph(graph_data, search_text)
-                # In case filter nodes was triggered
-                elif input_id == 'filter_nodes':
-                    graph_data = self._callback_filter_nodes(graph_data, filter_nodes_text)
-                # In case filter edges was triggered
-                elif input_id == 'filter_edges':
-                    graph_data = self._callback_filter_edges(graph_data, filter_edges_text)
-                # If color node text is provided
-                if input_id == 'color_nodes':
-                    graph_data, self.node_value_color_mapping = self._callback_color_nodes(graph_data, color_nodes_value)
-                # If color edge text is provided
-                if input_id == 'color_edges':
-                    graph_data, self.edge_value_color_mapping = self._callback_color_edges(graph_data, color_edges_value)
-                # If size node text is provided
-                if input_id == 'size_nodes':
-                    graph_data = self._callback_size_nodes(graph_data, size_nodes_value)
-                # If size edge text is provided
-                if input_id == 'size_edges':
-                    graph_data = self._callback_size_edges(graph_data, size_edges_value)
-            # create the color legend childrens
-            color_popover_legend_children = self.get_color_popover_legend_children(self.node_value_color_mapping, self.edge_value_color_mapping)
-            # finally return the modified data
-            return [graph_data, color_popover_legend_children]
+            return graph_data, self.get_color_popover_legend_children()
+
+        # 
+        #         return [self.data, self.get_color_popover_legend_children()]
+        #     else:
+        #         # find the id of the option which was triggered
+        #         input_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        #         # perform operation in case of search graph option
+        #         if input_id == "search_graph":
+        #             graph_data = self._callback_search_graph(graph_data, search_text)
+        #         # In case filter nodes was triggered
+        #         elif input_id == 'filter_nodes':
+        #             graph_data = self._callback_filter_nodes(graph_data, filter_nodes_text)
+        #         # In case filter edges was triggered
+        #         elif input_id == 'filter_edges':
+        #             graph_data = self._callback_filter_edges(graph_data, filter_edges_text)
+        #         # If color node text is provided
+        #         if input_id == 'color_nodes':
+        #             graph_data, self.node_value_color_mapping = self._callback_color_nodes(graph_data, color_nodes_value)
+        #         # If color edge text is provided
+        #         if input_id == 'color_edges':
+        #             graph_data, self.edge_value_color_mapping = self._callback_color_edges(graph_data, color_edges_value)
+        #         # If size node text is provided
+        #         if input_id == 'size_nodes':
+        #             graph_data = self._callback_size_nodes(graph_data, size_nodes_value)
+        #         # If size edge text is provided
+        #         if input_id == 'size_edges':
+        #             graph_data = self._callback_size_edges(graph_data, size_edges_value)
+        #     # create the color legend childrens
+        #     color_popover_legend_children = self.get_color_popover_legend_children(self.node_value_color_mapping, self.edge_value_color_mapping)
+        #     # finally return the modified data
+        #     return [graph_data, color_popover_legend_children]
         # return server
         return app
 

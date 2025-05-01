@@ -243,6 +243,7 @@ def get_app_layout(graph_data, color_legends=[], directed=False, vis_opts=None):
                             html.H6("Color"), # heading
                             html.Div([
                                 dbc.Button("Hide/Show", id="color-show-toggle-button", outline=True, color="secondary", size="sm"), # legend
+                                dbc.Button("Toggle", id="my-toggle-button", outline=True, color="primary", size="sm"), # legend
                                 dbc.Button("Legends", id="color-legend-toggle", outline=True, color="secondary", size="sm"), # legend
                             ]),
                             # add the legends popup
